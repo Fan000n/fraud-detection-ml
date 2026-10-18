@@ -10,21 +10,23 @@ Design notes:
   preprocessing variant (see src/preprocessing.py).
 - Decision Tree and Random Forest don't care about scale, so they use the
   "tree" variant.
-- The depth/leaf constraints on DT are baseline regularizers. Without them a
-  tree on 1.1M rows grows effectively unbounded, which is both slow and a
-  textbook overfitting demo. Proper tuning is Step 10.
-- Random Forest uses `n_jobs=-1` to parallelize across cores. On a T480S this
-  is the difference between ~5 min and ~30 min for a fit.
-- `class_weight` is left as None everywhere by default. Class imbalance is a
-  separate experiment in Step 9, not something baked into the baselines.
+- The depth/leaf constraints on DT and RF are baseline regularizers. Proper
+  tuning is Step 10.
+- `class_weight="balanced"` makes the model penalize errors on the minority
+  class (fraud) much more heavily than errors on the majority class. This is
+  the first of two imbalance strategies we'll test (the other is SMOTE).
 """
 
+from typing import Optional
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 
 
-def build_logistic_regression(random_state: int = 42) -> LogisticRegression:
+def build_logistic_regression(
+    random_state: int = 42,
+    class_weight: Optional[str] = None,
+) -> LogisticRegression:
     """
     Baseline model.
 
@@ -33,36 +35,40 @@ def build_logistic_regression(random_state: int = 42) -> LogisticRegression:
     """
     return LogisticRegression(
         max_iter=1000,
+        class_weight=class_weight,
         random_state=random_state,
     )
 
 
-def build_decision_tree(random_state: int = 42) -> DecisionTreeClassifier:
+def build_decision_tree(
+    random_state: int = 42,
+    class_weight: Optional[str] = None,
+) -> DecisionTreeClassifier:
     """
     Single decision tree.
 
     `max_depth=15` and `min_samples_leaf=10` are baseline regularization.
-    Without them the tree grows essentially unbounded on 1.1M rows - slow to
-    fit and a classic overfitting case. Both will be revisited in Step 10.
     """
     return DecisionTreeClassifier(
         max_depth=15,
         min_samples_leaf=10,
+        class_weight=class_weight,
         random_state=random_state,
     )
 
 
-def build_random_forest(random_state: int = 42) -> RandomForestClassifier:
+def build_random_forest(
+    random_state: int = 42,
+    class_weight: Optional[str] = None,
+) -> RandomForestClassifier:
     """
     Random Forest with 100 trees.
-
-    `max_depth=15` and `min_samples_leaf=10` keep individual trees in check,
-    same reasoning as the single tree. `n_jobs=-1` uses all cores.
     """
     return RandomForestClassifier(
         n_estimators=100,
         max_depth=15,
         min_samples_leaf=10,
         n_jobs=-1,
+        class_weight=class_weight,
         random_state=random_state,
     )
